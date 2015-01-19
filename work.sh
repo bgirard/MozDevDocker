@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source settings.sh
+
 set -e
 
 BUG_NUMBER="$1"
@@ -79,7 +81,7 @@ function commit {
   echo "You may want to consider pasting the following in bugzilla:"
   echo ""
   echo "Updated container for bug $BUG_NUMBER."
-  echo "To connect: ssh env@bugs.fantasytalesonline.com $BUG_NUMBER"
+  echo "To connect: ssh $URL $BUG_NUMBER"
   echo ""
   echo "For more information see: https://wiki.mozilla.org/DockerEnv"
   echo ""
