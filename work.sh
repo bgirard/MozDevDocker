@@ -1,13 +1,25 @@
 #!/bin/bash
 
-source settings.sh
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+source $DIR/settings.sh
 
 set -e
 
-BUG_NUMBER="$1"
+if [ "$1" == "-c" ]; then
+  echo "WARNING!!!:"
+  echo "Your running with an argument which conflicts with signal handling."
+  echo "You may be disconnected when sending ^C"
+  echo ""
+fi
+
+#BUG_NUMBER="$2"
 
 function run {
   if [[ -z "$BUG_NUMBER" ]]; then
+    echo "Active containers on this host:"
+    docker ps -a | sed -e "1d" | sed -e 's/.*bug//g' | sort -n
+    echo ""
     echo -n "Please enter the bug number you're working on: "
     read BUG_NUMBER
   fi
@@ -53,15 +65,16 @@ function resume_docker {
   echo "You may need to press enter to get a prompt."
 
   echo "Ports:"
-  docker inspect --format="{{ json .NetworkSettings.Ports }}" 7932641e216d  | python -mjson.tool
+  docker inspect --format="{{ json .NetworkSettings.Ports }}" $DOCKER_IMAGE  | python -mjson.tool
   echo ""
 
   IS_RUNNING=$(docker inspect --format "{{ .State.Running }}" $DOCKER_IMAGE)
   if [[ "$IS_RUNNING" == true ]]; then
-    docker attach $DOCKER_IMAGE
+    docker exec $DOCKER_IMAGE -i -t bash
   else
     docker start -i $DOCKER_IMAGE
   fi
+
 
   check_commit
 }
