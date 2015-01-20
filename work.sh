@@ -2,6 +2,14 @@
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+if [ -z "$SSH_AUTH_SOCK" ]; then
+  echo "WARNING:"
+  echo "You must setup ssh-agent if you want to push."
+  DOCKER_SSH_AGENT=""
+else
+  DOCKER_SSH_AGENT="-v $(dirname $SSH_AUTH_SOCK):$(dirname $SSH_AUTH_SOCK) -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+fi
+
 source $DIR/settings.sh
 
 set -e
@@ -54,9 +62,18 @@ function create_docker {
   fi
 
   echo Creating $IMAGE_NAME
-  docker run -P -i -t -d --name="$IMAGE_NAME" "$IMAGE_TO_LOAD" su -l mozillian
+  docker run $DOCKER_SSH_AGENT -P -i -t -d --name="$IMAGE_NAME" "$IMAGE_TO_LOAD" su -l mozillian
 
   DOCKER_IMAGE=$(docker ps -a | grep $IMAGE_NAME | awk '{ print $1 }')
+
+  if [ ! -z "$DOCKER_SSH_AGENT" ]; then
+    docker exec $DOCKER_IMAGE chown -R mozillian $(dirname $SSH_AUTH_SOCK)
+    docker exec $DOCKER_IMAGE ls /home/
+    docker exec $DOCKER_IMAGE ls /home/mozillian/
+    docker exec $DOCKER_IMAGE ls /home/mozillian/.bashrc
+    docker exec $DOCKER_IMAGE bash -c 'echo "export SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> /home/mozillian/.bashrc'
+  fi
+
   resume_docker
 }
 
@@ -70,7 +87,7 @@ function resume_docker {
 
   IS_RUNNING=$(docker inspect --format "{{ .State.Running }}" $DOCKER_IMAGE)
   if [[ "$IS_RUNNING" == true ]]; then
-    docker exec $DOCKER_IMAGE -i -t bash
+    docker exec -i -t $DOCKER_IMAGE su - mozillian
   else
     docker start -i $DOCKER_IMAGE
   fi
